@@ -14,6 +14,11 @@ Any polygons named in the KML file are potential locations for the
 text. textloc will choose a random one whose name is found in the
 text, then generate a random point in the polygon.
 
+You can have many locations in the KML file with the same name.
+The map for Noe Alerts, for example, has many locations named CAFE.
+A text input containing CAFE would get a location within one of
+their polygons.
+
 Here's the map that exported "textloc example.kml":
 https://www.google.com/maps/d/edit?mid=zFuwbvu-ufqE.kFWZ6c240y8Q&usp=sharing
 
