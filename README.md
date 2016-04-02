@@ -17,4 +17,4 @@ text, then generate a random point in the polygon.
 Here's the map that exported "textloc example.kml":
 https://www.google.com/maps/d/edit?mid=zFuwbvu-ufqE.kFWZ6c240y8Q&usp=sharing
 
-textloc only support KML, not KMZ.
+textloc only supports KML, not KMZ.
