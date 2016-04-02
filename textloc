@@ -1,0 +1,122 @@
+#!/usr/bin/env python
+
+# textloc generates random locations for text based on placemark names
+# in a KML file.
+
+# Copyright (c) 2016 Peter Teichman
+#
+# Permission is hereby granted, free of charge, to any person
+# obtaining a copy of this software and associated documentation files
+# (the "Software"), to deal in the Software without restriction,
+# including without limitation the rights to use, copy, modify, merge,
+# publish, distribute, sublicense, and/or sell copies of the Software,
+# and to permit persons to whom the Software is furnished to do so,
+# subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+# BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+import argparse
+import logging
+import random
+
+# Quiet a warning from fastkml due to missing lxml.
+logging.basicConfig(level=logging.ERROR)
+
+from fastkml import kml
+from pygeoif import Point
+
+flags = argparse.ArgumentParser(description="Find a location for some text.")
+flags.add_argument("--kml", help="KML file for location lookups")
+flags.add_argument("text", help="text to tag")
+
+
+def main():
+    args = flags.parse_args()
+
+    doc = kml.KML()
+    with open(args.kml, "rb") as fd:
+        doc.from_string(fd.read())
+
+    text = args.text.decode("utf-8", errors="replace")
+    loc = location(placemarks(doc), text)
+    print "%.10f,%.10f" % (loc.y, loc.x)
+
+
+def placemarks(doc):
+    ret = []
+    for folder in doc.features():
+        for layer in folder.features():
+            for placemark in layer.features():
+                ret.append((placemark.name, placemark.geometry))
+    return ret
+
+
+def location(places, text):
+    names, geometries = zip(*places)
+
+    candidates = []
+    for i, name in enumerate(names):
+        if name in text:
+            candidates.append(geometries[i])
+
+    if not candidates:
+        # Default to the polygon with the largest area.
+        candidates.append(max(geometries, key=area))
+
+    polygon = random.choice(candidates)
+    return random_point(polygon)
+
+
+def area(polygon):
+    # Use bounds for now; could be actual polygon area later.
+    minx, miny, maxx, maxy = polygon.bounds
+    return (maxx-minx) * (maxy-miny)
+
+
+def random_point(polygon):
+    minx, miny, maxx, maxy = polygon.bounds
+    loc = Point(between(minx, maxx), between(miny, maxy))
+    while not contains(polygon, loc):
+        loc = Point(between(minx, maxx), between(miny, maxy))
+    return loc
+
+
+def between(a, b):
+    return a + (b - a) * random.random()
+
+
+# Mostly taken from http://stackoverflow.com/a/16625697/963831
+def contains(polygon, point):
+    corners = polygon.exterior.geoms
+    inside = False
+
+    x, y = point.x, point.y
+    n = len(corners)
+
+    p1x, p1y = corners[0].x, corners[0].y
+    for i in range(n+1):
+        p2x, p2y = corners[i % n].x, corners[i % n].y
+        if y > min(p1y, p2y):
+            if y <= max(p1y, p2y):
+                if x <= max(p1x, p2x):
+                    if p1y != p2y:
+                        xints = (y-p1y)*(p2x-p1x)/(p2y-p1y)+p1x
+                    if p1x == p2x or x <= xints:
+                        inside = not inside
+        p1x, p1y = p2x, p2y
+
+    return inside
+
+
+if __name__ == "__main__":
+    main()
